@@ -26,6 +26,37 @@ async function run() {
     const jobsCollection = database.collection("jobs");
     const companyCollection = database.collection("companies");
     const userCollection = database.collection("user");
+    const applicationCollection = database.collection("applications");
+    const planCollection = database.collection("plans");
+
+
+    app.get('/api/plans', async (req, res) => {
+      const query = {};
+      if (req.query.plan_id) {
+        query.id = req.query.plan_id;
+      }
+      const results = await planCollection.find(query).toArray();
+      res.send(results);
+    });
+
+    app.get('/api/applications/:id', async (req, res) => {
+      const query = {}
+      if (req.query.applicantId) {
+        query.applicantId = req.query.applicantId
+      }
+      const results = await applicationCollection.find(query).toArray();
+      res.send(results);
+    })
+
+    app.post('/api/applications', async (req, res) => {
+      const application = req.body;
+      const newApplication = {
+        ...application,
+        createdAt: new Date()
+      }
+      const result = await applicationCollection.insertOne(newApplication);
+      res.send(result);
+    })
 
 
     app.get('/api/user', async (req, res) => {
@@ -86,8 +117,8 @@ async function run() {
         _id: new ObjectId(id)
       }
       const result = await jobsCollection.findOne(query);
-      res.send(result);       
-      })
+      res.send(result);
+    })
 
 
     await client.db("admin").command({ ping: 1 });
