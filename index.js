@@ -96,8 +96,22 @@ async function run() {
     })
 
     app.get('/api/companies', async (req, res) => {
-      const results = await companyCollection.find().skip(3).toArray();
+      const results = await companyCollection.find().toArray();
       res.send(results);
+    })
+
+    app.patch('/api/companies/:id', async (req, res) => {
+      const id = req.params.id
+      const updateCompany = req.body
+
+      const filter = {_id: new ObjectId(id)}
+      const updateOne = {
+        $set: {
+          status: updateCompany.status
+        }
+      }
+      const result = await companyCollection.updateOne(filter, updateOne)
+      res.send(result)
     })
 
     app.get('/api/my/companies', async (req, res) => {
