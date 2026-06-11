@@ -28,6 +28,26 @@ async function run() {
     const userCollection = database.collection("user");
     const applicationCollection = database.collection("applications");
     const planCollection = database.collection("plans");
+    const subscriptionCollection = database.collection("subscriptions");
+
+    app.post('/api/subscriptions', async (req, res) => {
+      const subscription = req.body;
+      const subInfo = {
+        ...subscription,
+        createdAt: new Date()
+      }
+      const result = await subscriptionCollection.insertOne(subInfo)
+
+      const filter = { email: subscription.userEmail }
+      const updateDocument = {
+        $set: {
+          plan: subscription.planId,
+        },
+      };
+
+      const updateResult = await userCollection.updateOne(filter, updateDocument)
+      res.send(updateResult)
+    });
 
 
     app.get('/api/plans', async (req, res) => {
@@ -39,13 +59,14 @@ async function run() {
       res.send(results);
     });
 
-    app.get('/api/applications/:id', async (req, res) => {
-      const query = {}
+    app.get('/api/applications', async (req, res) => {
+      const query = {};
       if (req.query.applicantId) {
-        query.applicantId = req.query.applicantId
+        query.applicantId = req.query.applicantId;
       }
-      const results = await applicationCollection.find(query).toArray();
-      res.send(results);
+      const cursor = applicationCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
     })
 
     app.post('/api/applications', async (req, res) => {
