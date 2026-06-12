@@ -29,6 +29,61 @@ async function run() {
     const applicationCollection = database.collection("applications");
     const planCollection = database.collection("plans");
     const subscriptionCollection = database.collection("subscriptions");
+    const sessionCollection = database.collection("session");
+
+    const verifyToken = async (req, res, next) => {
+      const authHeader = req.headers?.authorization
+      if (!authHeader) {
+        return res.status(401)
+      }
+
+      const token = authHeader.split(' ')[1]
+
+      if (!token) {
+        return res.status(401)
+      }
+
+      const query = { token: token }
+      const session = await sessionCollection.findOne(query)
+      const userId = session.userId
+      const userQuery = {
+        _id: userId
+      }
+      const user = await userCollection.findOne(userQuery)
+      req.user = user
+      next()
+    }
+
+    const verifySeeker = (req, res, next) => {
+      if (req.user?.role !== 'seeker') {
+        return res.status(403)
+      }
+      next()
+    }
+
+
+    const verifyAdmin = (req, res, next) => {
+      if (req.user?.role !== 'admin') {
+        return res.status(403)
+      }
+      next()
+    }
+
+    const verifyRecruiter = (req, res, next) => {
+      if (req.user?.role !== 'recruiter') {
+        return res.status(403)
+      }
+
+      next()
+    }
+
+    app.get('/api/user', async (req, res) => {
+      const results = await userCollection.find().skip(3).toArray();
+      res.send(results);
+    })
+
+    // subscription related api 
+
 
     app.post('/api/subscriptions', async (req, res) => {
       const subscription = req.body;
@@ -59,10 +114,18 @@ async function run() {
       res.send(results);
     });
 
-    app.get('/api/applications', async (req, res) => {
+
+
+    // application related api 
+
+
+    app.get('/api/applications', verifyToken, verifySeeker, async (req, res) => {
       const query = {};
       if (req.query.applicantId) {
         query.applicantId = req.query.applicantId;
+        if (req.user._id.toString() !== req.query.applicantId) {
+          return res.status(403)
+        }
       }
       const cursor = applicationCollection.find(query);
       const result = await cursor.toArray();
@@ -80,10 +143,9 @@ async function run() {
     })
 
 
-    app.get('/api/user', async (req, res) => {
-      const results = await userCollection.find().skip(3).toArray();
-      res.send(results);
-    })
+
+    // company related api 
+
 
     app.post('/api/companies', async (req, res) => {
       const company = req.body;
@@ -100,11 +162,11 @@ async function run() {
       res.send(results);
     })
 
-    app.patch('/api/companies/:id', async (req, res) => {
+    app.patch('/api/companies/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id
       const updateCompany = req.body
 
-      const filter = {_id: new ObjectId(id)}
+      const filter = { _id: new ObjectId(id) }
       const updateOne = {
         $set: {
           status: updateCompany.status
@@ -124,6 +186,10 @@ async function run() {
       const results = await companyCollection.findOne(query);
       res.send(results || {});
     })
+
+
+    // job related api 
+
 
     app.post('/api/jobs', async (req, res) => {
       const job = req.body;
