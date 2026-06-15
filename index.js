@@ -202,15 +202,62 @@ async function run() {
     })
 
     app.get('/api/jobs', async (req, res) => {
+      try {
+        const query = {};
 
-      const query = {}
-      if (req.query.companyId) {
-        query.companyId = req.query.companyId
+        // 1. Search — works fine, no change needed
+        if (req.query.search) {
+          query.$or = [
+            { jobTitle: { $regex: req.query.search, $options: 'i' } },
+            { companyName: { $regex: req.query.search, $options: 'i' } }
+          ];
+        }
+
+        // 2. jobType — use regex to handle case mismatch (e.g. "full-time" vs "Full-time")
+        if (req.query.jobType && req.query.jobType !== 'all') {
+          query.jobType = { $regex: `^${req.query.jobType}$`, $options: 'i' };
+        }
+
+        // 3. jobCategory — use regex to handle case mismatch (e.g. "engineering" vs "Software Engineering")
+        if (req.query.jobCategory && req.query.jobCategory !== 'all') {
+          query.jobCategory = { $regex: req.query.jobCategory, $options: 'i' };
+        }
+
+        // 4. isRemote — convert string "true"/"false" to boolean
+        if (req.query.isRemote) {
+          query.isRemote = req.query.isRemote === 'true';
+        }
+
+        // 5. companyId — no change
+        if (req.query.companyId) {
+          query.companyId = req.query.companyId;
+        }
+
+        // 6. status — no change
+        if (req.query.status) {
+          query.status = req.query.status;
+        }
+
+        // 7. Pagination
+        if (req.query.page) {
+          const page = parseInt(req.query.page);
+          const perPage = parseInt(req.query.perPage) || 12;
+          const skipItems = (page - 1) * perPage;
+          const total = await jobsCollection.countDocuments(query);
+          const cursor = jobsCollection.find(query).skip(skipItems).limit(perPage);
+          const jobs = await cursor.toArray();
+          return res.send({ total, jobs });
+        }
+
+        const cursor = jobsCollection.find(query);
+        const results = await cursor.toArray();
+        res.send(results);
+
+      } catch (error) {
+        console.error('GET /api/jobs error:', error);
+        res.status(500).send({ message: 'Internal server error' });
       }
-      const cursor = await jobsCollection.find(query);
-      const results = await cursor.toArray();
-      res.send(results);
-    })
+    });
 
     app.get('/api/jobs/:id', async (req, res) => {
       const id = req.params.id;
